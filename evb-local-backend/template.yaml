@@ -23,7 +23,7 @@ Resources:
       CodeUri: .
       Handler: src/connect.handler
       MemorySize: 256
-      Runtime: nodejs12.x
+      Runtime: nodejs18.x
       Environment:
         Variables:
           ConnectionsTable: !Ref ConnectionsTable
@@ -54,7 +54,7 @@ Resources:
       CodeUri: .
       Handler: src/disconnect.handler
       MemorySize: 256
-      Runtime: nodejs12.x
+      Runtime: nodejs18.x
       Environment:
         Variables:
           ConnectionsTable: !Ref ConnectionsTable
@@ -87,7 +87,7 @@ Resources:
       Handler: src/Registration.handler
       MemorySize: 512
       Timeout: 60
-      Runtime: nodejs12.x
+      Runtime: nodejs18.x
       Environment:
         Variables:
           ConnectionsTable: !Ref ConnectionsTable
@@ -217,7 +217,7 @@ Resources:
     Type: 'AWS::Serverless::Function'
     Properties:
       CodeUri: .
-      Runtime: nodejs12.x
+      Runtime: nodejs18.x
       Handler: src/EventConsumer.receiver
       MemorySize: 512
       Timeout: 10
@@ -290,17 +290,17 @@ Resources:
       CodeUri: .
       Handler: ./src/step-functions/CalculateWait.handler
       MemorySize: 256
-      Runtime: nodejs12.x
+      Runtime: nodejs18.x
   PacedDispatch:
     Type: 'AWS::Serverless::Function'
     Properties:
       CodeUri: .
       Handler: ./src/step-functions/PacedDispatch.handler
       MemorySize: 256
-      Runtime: nodejs12.x
+      Runtime: nodejs18.x
       Environment:
         Variables:
-          AccountId: !Ref AWS::AccountId
+          AccountId: !Ref 'AWS::AccountId'
       Policies:
         - EventBridgePutEventsPolicy:
             EventBusName: '*'
@@ -310,7 +310,7 @@ Resources:
       CodeUri: .
       Handler: ./src/step-functions/PacedCleanup.handler
       MemorySize: 256
-      Runtime: nodejs12.x
+      Runtime: nodejs18.x
       Policies:
         Version: 2012-10-17
         Statement:
@@ -327,7 +327,7 @@ Resources:
   EventToStepFunctionsRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: !Sub evb-cli-eventbridge-to-stepfunctions-${AWS::Region}
+      RoleName: !Sub 'evb-cli-eventbridge-to-stepfunctions-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -353,5 +353,38 @@ Resources:
               - !Ref PacedReplayStateMachine
       Roles:
         - !Ref EventToStepFunctionsRole
-  
+  SchedulesTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+  BackfillSchedulesStateMachine:
+    Type: 'AWS::Serverless::StateMachine'
+    Properties:
+      Name: evb-cli-backfill-schedules
+      DefinitionUri: statemachines/backfill-schedules.yaml
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Sid: Statement1
+              Effect: Allow
+              Action:
+                - 'scheduler:GetSchedule'
+                - 'scheduler:ListScheduleGroups'
+                - 'scheduler:ListSchedules'
+              Resource:
+                - '*'
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SchedulesTable
+      DefinitionSubstitutions:
+        SchedulesTable: !Ref SchedulesTable
 Outputs: {}

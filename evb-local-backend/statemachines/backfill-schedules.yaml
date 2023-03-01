@@ -1,0 +1,74 @@
+Comment: A description of my state machine
+StartAt: ListScheduleGroups
+States:
+  ListScheduleGroups:
+    Type: Task
+    Parameters: {}
+    Resource: arn:aws:states:::aws-sdk:scheduler:listScheduleGroups
+    Next: For each scheduler group
+  For each scheduler group:
+    Type: Map
+    ItemProcessor:
+      ProcessorConfig:
+        Mode: INLINE
+      StartAt: ListSchedules
+      States:
+        ListSchedules:
+          Type: Task
+          Parameters: {}
+          Resource: arn:aws:states:::aws-sdk:scheduler:listSchedules
+          Next: For each schedule
+        For each schedule:
+          Type: Map
+          ItemsPath: $.Schedules
+          ItemProcessor:
+            ProcessorConfig:
+              Mode: INLINE
+            StartAt: GetSchedule
+            States:
+              GetSchedule:
+                Type: Task
+                Parameters:
+                  Name.$: $.Name
+                  GroupName.$: $.GroupName
+                Resource: arn:aws:states:::aws-sdk:scheduler:getSchedule
+                Next: Save schedule
+              Save schedule:
+                Type: Task
+                Resource: arn:aws:states:::dynamodb:putItem
+                Parameters:
+                  TableName: ${SchedulesTable}
+                  Item:
+                    PK:
+                      S.$: States.Format('NAME#{}', $.Name)
+                    SK:
+                      S.$: States.Format('GROUP#{}', $.GroupName)
+                    Expression: 
+                      S.$: $.ScheduleExpression
+                    Config: 
+                      S.$: States.JsonToString($)
+                End: true
+          Next: Has more schedules?
+        Has more schedules?: 
+          Type: Choice
+          Choices:
+            - Variable: $.NextToken
+              IsPresent: true
+              Next: ListSchedules
+          Default: Pass
+        Pass:
+          Type: Pass
+          End: true
+    MaxConcurrency: 1
+    ItemsPath: $.ScheduleGroups
+    Next: Choice
+  Choice:
+    Type: Choice
+    Choices:
+      - Variable: $.NextToken
+        IsPresent: true
+        Next: ListScheduleGroups
+    Default: End
+  End:
+    Type: Pass
+    End: true
