@@ -1,3 +1,7 @@
+**********************************************************************************
+# THIS FORK IS NO LONGER BEING UPDATED. PLEASE FOLLOW IT AT [@ljacobsson/evb-cli](https://github.com/ljacobsson/evb-cli)
+**********************************************************************************
+
 ![Node.js CI](https://github.com/mhlabs/evb-cli/workflows/Node.js%20CI/badge.svg)
 
 # evb-cli
